@@ -15,7 +15,11 @@ const fileUpload=require('./middleware/fileUpload');
 // const HttpError = require('./models/http-error');
 // const HttpError = require('./middleware/HttpError')
 
-app.use(cors());
+const corsOptions={
+  origin:['https://f1-frontend-inky.vercel.app','http://localhost:3000']
+}
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
