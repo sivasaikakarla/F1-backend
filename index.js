@@ -66,7 +66,7 @@ var accessLogStream = rfs.createStream('access.log', {
 app.use(morgan('combined', { stream: accessLogStream }))
 
 
-const Port = process.env.PORT || 8080;
+const Port =  8080;
 
 console.log(process.env.MONGODB_URL);
 
@@ -391,7 +391,7 @@ const adminSchema = mongoose.Schema({
   },
   password: {
     type:String,
-    required: true
+    required: true
   }
 });
 
@@ -1946,7 +1946,7 @@ app.get('/user/:userId/document', async (req, res) => {
 
     const documentPath = user.documentPath; 
 
-    const serverURL = 'http://localhost:8080'; 
+    const serverURL = (process.env.NODE_ENV==='production') ? 'https://f1-backend.onrender.com':'http://localhost:8080'; 
     const documentURL = `${serverURL}/${documentPath}`;
 
     res.status(200).json({ documentURL });
@@ -2064,7 +2064,7 @@ app.get('/api/datas', async (req, res) => {
     const connectionIds = connections.map(connection => connection._id);
 
     const data = await orderModel.find({ connection: { $in: connectionIds } }).populate('connection').exec();
-
+    console.log(typeof data)
     res.json(data);
   } catch (error) {
     console.error(error);
@@ -2393,3 +2393,6 @@ app.get('/api/dbhistory', async (req, res) => {
 app.listen(Port, () => console.log("server is running at port : " + Port));
 
 
+module.exports = {
+  app
+}
