@@ -42,6 +42,7 @@ const options ={
   apis:['./index.js']
 }
 
+
 const swaggerSpec = swaggerJSDoc(options)
 app.use('/api-docs',swaggerUi.serve,swaggerUi.setup(swaggerSpec))
 
@@ -66,7 +67,7 @@ var accessLogStream = rfs.createStream('access.log', {
 app.use(morgan('combined', { stream: accessLogStream }))
 
 
-const Port =  8080;
+const Port = process.env.PORT || 8080;
 
 console.log(process.env.MONGODB_URL);
 
@@ -391,7 +392,7 @@ const adminSchema = mongoose.Schema({
   },
   password: {
     type:String,
-    required: true
+    required: true
   }
 });
 
@@ -539,6 +540,9 @@ app.post("/signup",myLog1, async (req, res) => {
  *             schema:
  *               type: object
  *               properties:
+ *                 fullName:
+ *                   type: string
+ *                   description: The full name of the user.
  *                 email:
  *                   type: string
  *                   format: email
@@ -546,9 +550,20 @@ app.post("/signup",myLog1, async (req, res) => {
  *                 phone:
  *                   type: integer
  *                   description: The phone number of the user.
+ *                 password:
+ *                   type: string
+ *                   format: password
+ *                   description: The password of the user.
+ *                 confirmPassword:
+ *                   type: string
+ *                   format: password
+ *                   description: The confirmation password of the user.
  *               required:
+ *                 - fullName
  *                 - email
  *                 - phone
+ *                 - password
+ *                 - confirmPassword
  *       responses:
  *         '200':
  *           description: Successful signup
@@ -582,40 +597,45 @@ app.post("/signup",myLog1, async (req, res) => {
  *                     example: false
  */
 
-
-app.post("/dbregister",fileUpload.single('document'), async (req, res) => {
+app.post("/dbregister", fileUpload.single('document'), async (req, res) => {
   console.log(req.body);
   const { email, phone } = req.body;
-  const documentpath=req.file.path;
+  const documentpath = req.file.path;
+  console.log("document path : " + documentpath)
+  const updatedObject = { ...req.body, document: documentpath };
 
-  const updatedObject={...req.body,document:documentpath};
+  try {
+    const emailExists = await dbModel.findOne({ email: email });
+    const phoneExists = await dbModel.findOne({ phone: phone });
 
-  const emailExists = await dbModel.findOne({ email: email });
-  const phoneExists = await dbModel.findOne({ phone: phone });
-  if (!emailExists && !phoneExists) {
-    const newdb = dbModel(updatedObject);
-    const save = await newdb.save();
-    res.send({ message: "Wait for Admins Approval", alert: true });
-  } else {
-    let message = "";
-    if (emailExists) {
-      message += "Email id is already present. ";
+    if (!emailExists && !phoneExists) {
+      const newdb = dbModel(updatedObject);
+      const save = await newdb.save();
+      res.send({ message: "Wait for Admins Approval", alert: true });
+    } else {
+      let message = "";
+      if (emailExists) {
+        message += "Email id is already present. ";
+      }
+      if (phoneExists) {
+        message += "Phone number is already present.";
+      }
+      res.send({ message: message, alert: false });
     }
-    if (phoneExists) {
-      message += "Phone number is already present.";
-    }
-    res.send({ message: message, alert: false });
+  } catch (error) {
+    console.log(error)
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 /**
  * @swagger
  * paths:
  *   /dbregister:
  *     post:
- *       summary: Register User in Database
- *       description: Register a new user in the database with document upload.
+ *       summary: Delivery Boy Signup
+ *       description: Register a new user.
  *       requestBody:
  *         required: true
  *         content:
@@ -623,20 +643,42 @@ app.post("/dbregister",fileUpload.single('document'), async (req, res) => {
  *             schema:
  *               type: object
  *               properties:
+ *                 fullName:
+ *                   type: string
+ *                   description: The full name of the user.
  *                 email:
  *                   type: string
  *                   format: email
  *                   description: The email address of the user.
  *                 phone:
- *                   type: integer
+ *                   type: number
  *                   description: The phone number of the user.
+ *                 password:
+ *                   type: string
+ *                   format: password
+ *                   description: The password of the user.
+ *                 confirmPassword:
+ *                   type: string
+ *                   format: password
+ *                   description: The confirmation password of the user.
  *                 document:
  *                   type: string
  *                   format: binary
- *                   description: The document to be uploaded.
+ *                   description: The document file.
+ *                 area:
+ *                   type: string
+ *                   description: Area
+ *               required:
+ *                 - fullName
+ *                 - email
+ *                 - phone
+ *                 - password
+ *                 - confirmPassword
+ *                 - document
+ *                 - area
  *       responses:
  *         '200':
- *           description: Successful registration
+ *           description: Successful signup
  *           content:
  *             application/json:
  *               schema:
@@ -645,7 +687,7 @@ app.post("/dbregister",fileUpload.single('document'), async (req, res) => {
  *                   message:
  *                     type: string
  *                     description: Confirmation message.
- *                     example: Wait for Admins Approval
+ *                     example: Successfully signed up. Wait for Admins Approval.
  *                   alert:
  *                     type: boolean
  *                     description: Indicates if an alert should be shown.
@@ -660,12 +702,12 @@ app.post("/dbregister",fileUpload.single('document'), async (req, res) => {
  *                   message:
  *                     type: string
  *                     description: Error message.
+ *                     example: Email id is already present.
  *                   alert:
  *                     type: boolean
  *                     description: Indicates if an alert should be shown.
  *                     example: false
  */
-
 
 
 app.post("/newconnection", fileUpload.single('document'),async (req, res) => {
@@ -697,68 +739,68 @@ app.post("/newconnection", fileUpload.single('document'),async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * paths:
- *   /newconnection:
- *     post:
- *       summary: Register New Connection
- *       description: Register a new connection with document upload.
- *       requestBody:
- *         required: true
- *         content:
- *           multipart/form-data:
- *             schema:
- *               type: object
- *               properties:
- *                 aadhar:
- *                   type: integer
- *                   description: The Aadhar number of the user.
- *                 email:
- *                   type: string
- *                   format: email
- *                   description: The email address of the user.
- *                 phone:
- *                   type: integer
- *                   description: The phone number of the user.
- *                 document:
- *                   type: string
- *                   format: binary
- *                   description: The document to be uploaded.
- *       responses:
- *         '200':
- *           description: Connection registration successful
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Confirmation message.
- *                     example: Your Connection status is pending
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: true
- *                   connectionId:
- *                     type: string
- *                     description: The ID of the new connection.
- *         '400':
- *           description: Bad request
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
- */
+// /**
+//  * @swagger
+//  * paths:
+//  *   /newconnection:
+//  *     post:
+//  *       summary: Register New Connection
+//  *       description: Register a new connection with document upload.
+//  *       requestBody:
+//  *         required: true
+//  *         content:
+//  *           multipart/form-data:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 aadhar:
+//  *                   type: integer
+//  *                   description: The Aadhar number of the user.
+//  *                 email:
+//  *                   type: string
+//  *                   format: email
+//  *                   description: The email address of the user.
+//  *                 phone:
+//  *                   type: integer
+//  *                   description: The phone number of the user.
+//  *                 document:
+//  *                   type: string
+//  *                   format: binary
+//  *                   description: The document to be uploaded.
+//  *       responses:
+//  *         '200':
+//  *           description: Connection registration successful
+//  *           content:
+//  *             application/json:
+//  *               schema:
+//  *                 type: object
+//  *                 properties:
+//  *                   message:
+//  *                     type: string
+//  *                     description: Confirmation message.
+//  *                     example: Your Connection status is pending
+//  *                   alert:
+//  *                     type: boolean
+//  *                     description: Indicates if an alert should be shown.
+//  *                     example: true
+//  *                   connectionId:
+//  *                     type: string
+//  *                     description: The ID of the new connection.
+//  *         '400':
+//  *           description: Bad request
+//  *           content:
+//  *             application/json:
+//  *               schema:
+//  *                 type: object
+//  *                 properties:
+//  *                   message:
+//  *                     type: string
+//  *                     description: Error message.
+//  *                   alert:
+//  *                     type: boolean
+//  *                     description: Indicates if an alert should be shown.
+//  *                     example: false
+//  */
 
 
 app.post("/signin",myLog, async (req, res) => {
@@ -982,14 +1024,17 @@ app.post("/dblogin", async (req, res) => {
 app.get('/api/db', async (req, res) => {
   try {
     const dbEmail = obj2.email; 
-    const dbArea = obj2.area;
+    const dbArea = obj2.area ;
+    // if(!dbArea)
+    // dbArea=2
+    
     const connections = await connModel.find({ area:dbArea}).select('_id');
 
     const connectionIds = connections.map(connection => connection._id);
 
     const data = await orderModel.find({ connection: { $in: connectionIds } , status:"pending" }).populate('connection').exec();
-
-    res.json(data);
+    console.log(data)
+    res.status(200).json(data);
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
@@ -998,105 +1043,28 @@ app.get('/api/db', async (req, res) => {
 
 /**
  * @swagger
- * paths:
- *   /api/db:
- *     get:
- *       summary: Get Pending Orders in Database
- *       description: Retrieve pending orders associated with the logged-in user's area.
- *       responses:
- *         '200':
- *           description: Successful retrieval
- *           content:
- *             application/json:
- *               schema:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       description: The ID of the order.
- *                     connection:
- *                       type: object
- *                       description: Information about the connection associated with the order.
- *                       properties:
- *                         _id:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 605d605fcb3d6779f8db5c7d
- *                         fullName:
- *                           type: string
- *                           description: The full name of the connection holder.
- *                           example: John Doe
- *                         phone:
- *                           type: number
- *                           description: The phone number of the connection holder.
- *                           example: 1234567890
- *                         email:
- *                           type: string
- *                           format: email
- *                           description: The email address of the connection holder.
- *                           example: johndoe@example.com
- *                         aadhar:
- *                           type: number
- *                           description: The Aadhar number of the connection holder.
- *                           example: 123456789012
- *                         gender:
- *                           type: string
- *                           description: The gender of the connection holder.
- *                           example: Male
- *                         dob:
- *                           type: string
- *                           format: date-time
- *                           description: The date of birth of the connection holder.
- *                           example: 1990-01-01T00:00:00Z
- *                         address:
- *                           type: string
- *                           description: The address of the connection holder.
- *                           example: 123 Main Street
- *                         area:
- *                           type: string
- *                           description: The area of the connection holder.
- *                           example: Downtown
- *                         document:
- *                           type: string
- *                           description: The document path of the connection holder.
- *                           example: /uploads/document.pdf
- *                         connectionId:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 1001
- *                         status:
- *                           type: string
- *                           description: The status of the connection.
- *                           example: pending
- *                     type:
- *                       type: string
- *                       description: The type of the order.
- *                       example: Installation
- *                     timestamp:
- *                       type: string
- *                       format: date-time
- *                       description: The timestamp of the order.
- *                       example: 2024-04-27T12:00:00Z
- *                     status:
- *                       type: string
- *                       description: The status of the order.
- *                       example: pending
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ * /api/db:
+ *   get:
+ *     summary: Get orders from the database
+ *     description: Retrieve orders from the MongoDB based on the specified area and return the orders with orderId, status, and timestamp.
+ *     parameters:
+ *       - in: query
+ *         name: area
+ *         description: The area for which to retrieve orders
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: An array of orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
+ *       500:
+ *         description: Server error
  */
 
 
@@ -1113,85 +1081,30 @@ app.get('/api/data', async (req, res) => {
 
 /**
  * @swagger
- * paths:
- *   /api/data:
- *     get:
- *       summary: Get User Data
- *       description: Retrieve user data based on the provided email.
- *       responses:
- *         '200':
- *           description: Successful retrieval
- *           content:
- *             application/json:
- *               schema:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       description: The ID of the user.
- *                     fullName:
- *                       type: string
- *                       description: The full name of the user.
- *                       example: John Doe
- *                     phone:
- *                       type: number
- *                       description: The phone number of the user.
- *                       example: 1234567890
- *                     email:
- *                       type: string
- *                       format: email
- *                       description: The email address of the user.
- *                       example: johndoe@example.com
- *                     aadhar:
- *                       type: number
- *                       description: The Aadhar number of the user.
- *                       example: 123456789012
- *                     gender:
- *                       type: string
- *                       description: The gender of the user.
- *                       example: Male
- *                     dob:
- *                       type: string
- *                       format: date-time
- *                       description: The date of birth of the user.
- *                       example: 1990-01-01T00:00:00Z
- *                     address:
- *                       type: string
- *                       description: The address of the user.
- *                       example: 123 Main Street
- *                     area:
- *                       type: string
- *                       description: The area of the user.
- *                       example: Downtown
- *                     document:
- *                       type: string
- *                       description: The document path of the user.
- *                       example: /uploads/document.pdf
- *                     connectionId:
- *                       type: string
- *                       description: The ID of the user's connection.
- *                       example: 1001
- *                     status:
- *                       type: string
- *                       description: The status of the user's connection.
- *                       example: pending
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ * /api/data:
+ *   get:
+ *     summary: Get data from the database
+ *     description: Retrieve data from the MongoDB based on the specified email and return the results.
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         description: The email to search for in the database
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: An array of data matching the email
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Connection'
+ *       500:
+ *         description: Server error
  */
+
 
 
 
@@ -1367,110 +1280,31 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
-
 /**
  * @swagger
- * paths:
- *   /api/history:
- *     get:
- *       summary: Get Order History
- *       description: Retrieve order history for the logged-in user.
- *       responses:
- *         '200':
- *           description: Successful retrieval
- *           content:
- *             application/json:
- *               schema:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       description: The ID of the order.
- *                     connection:
- *                       type: object
- *                       description: Information about the connection associated with the order.
- *                       properties:
- *                         _id:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 605d605fcb3d6779f8db5c7d
- *                         fullName:
- *                           type: string
- *                           description: The full name of the connection holder.
- *                           example: John Doe
- *                         phone:
- *                           type: number
- *                           description: The phone number of the connection holder.
- *                           example: 1234567890
- *                         email:
- *                           type: string
- *                           format: email
- *                           description: The email address of the connection holder.
- *                           example: johndoe@example.com
- *                         aadhar:
- *                           type: number
- *                           description: The Aadhar number of the connection holder.
- *                           example: 123456789012
- *                         gender:
- *                           type: string
- *                           description: The gender of the connection holder.
- *                           example: Male
- *                         dob:
- *                           type: string
- *                           format: date-time
- *                           description: The date of birth of the connection holder.
- *                           example: 1990-01-01T00:00:00Z
- *                         address:
- *                           type: string
- *                           description: The address of the connection holder.
- *                           example: 123 Main Street
- *                         area:
- *                           type: string
- *                           description: The area of the connection holder.
- *                           example: Downtown
- *                         document:
- *                           type: string
- *                           description: The document path of the connection holder.
- *                           example: /uploads/document.pdf
- *                         connectionId:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 1001
- *                         status:
- *                           type: string
- *                           description: The status of the connection.
- *                           example: pending
- *                     type:
- *                       type: string
- *                       description: The type of the order.
- *                       example: Installation
- *                     timestamp:
- *                       type: string
- *                       format: date-time
- *                       description: The timestamp of the order.
- *                       example: 2024-04-27T12:00:00Z
- *                     status:
- *                       type: string
- *                       description: The status of the order.
- *                       example: pending
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ * /api/history:
+ *   get:
+ *     summary: Get order history for a user
+ *     description: Retrieve order history from the MongoDB based on the specified user's email and return the results.
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         description: The email of the user for whom to retrieve order history
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: An array of order history data for the user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
+ *       500:
+ *         description: Server error
  */
-
 
 app.get('/api/comphistory', async (req, res) => {
   try {
@@ -1491,177 +1325,78 @@ console.log(obj.value)
 
 /**
  * @swagger
- * paths:
- *   /api/comphistory:
- *     get:
- *       summary: Get Complaint History
- *       description: Retrieve complaint history for the logged-in user.
- *       responses:
- *         '200':
- *           description: Successful retrieval
- *           content:
- *             application/json:
- *               schema:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       description: The ID of the complaint.
- *                     connection:
- *                       type: object
- *                       description: Information about the connection associated with the complaint.
- *                       properties:
- *                         _id:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 605d605fcb3d6779f8db5c7d
- *                         fullName:
- *                           type: string
- *                           description: The full name of the connection holder.
- *                           example: John Doe
- *                         phone:
- *                           type: number
- *                           description: The phone number of the connection holder.
- *                           example: 1234567890
- *                         email:
- *                           type: string
- *                           format: email
- *                           description: The email address of the connection holder.
- *                           example: johndoe@example.com
- *                         aadhar:
- *                           type: number
- *                           description: The Aadhar number of the connection holder.
- *                           example: 123456789012
- *                         gender:
- *                           type: string
- *                           description: The gender of the connection holder.
- *                           example: Male
- *                         dob:
- *                           type: string
- *                           format: date-time
- *                           description: The date of birth of the connection holder.
- *                           example: 1990-01-01T00:00:00Z
- *                         address:
- *                           type: string
- *                           description: The address of the connection holder.
- *                           example: 123 Main Street
- *                         area:
- *                           type: string
- *                           description: The area of the connection holder.
- *                           example: Downtown
- *                         document:
- *                           type: string
- *                           description: The document path of the connection holder.
- *                           example: /uploads/document.pdf
- *                         connectionId:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 1001
- *                         status:
- *                           type: string
- *                           description: The status of the connection.
- *                           example: pending
- *                     type:
- *                       type: string
- *                       description: The type of the complaint.
- *                       example: Service Disruption
- *                     timestamp:
- *                       type: string
- *                       format: date-time
- *                       description: The timestamp of the complaint.
- *                       example: 2024-04-27T12:00:00Z
- *                     status:
- *                       type: string
- *                       description: The status of the complaint.
- *                       example: pending
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ * /api/comphistory:
+ *   get:
+ *     summary: Get complaint history for a user
+ *     description: Retrieve complaint history from the MongoDB based on the specified user's email and return the results.
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         description: The email of the user for whom to retrieve complaint history
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: An array of complaint history data for the user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Complaint'
+ *       500:
+ *         description: Server error
  */
 
 
 
-app.post('/update-status', async (req, res) => {
-  const id = req.body.orderId;
-
-  try {
-      // Update the order status to 'completed' using updateOne
-      await orderModel.updateOne({ orderId: id }, { status: 'completed' });
-  } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Internal server error' });
-      res.send({ message: "Order placed Successfully", alert: true,pendingOrders});
-  }
-});
-
 /**
  * @swagger
- * paths:
- *   /update-status:
- *     post:
- *       summary: Update Order Status
- *       description: Update the status of an order to 'completed'.
- *       requestBody:
- *         required: true
+ * /update-status:
+ *   put:
+ *     summary: Update order status to 'completed'
+ *     description: Update the status of an order to 'completed' based on the provided orderId.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: The ID of the order to be updated
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 orderId:
+ *                 message:
  *                   type: string
- *                   description: The ID of the order to be updated.
- *                   example: 605d605fcb3d6779f8db5c7d
- *               required:
- *                 - orderId
- *       responses:
- *         '200':
- *           description: Order status updated successfully
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Confirmation message.
- *                     example: Order status updated successfully
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: true
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   error:
- *                     type: string
- *                     description: Error message.
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ *                   description: A success message
+ *                 alert:
+ *                   type: boolean
+ *                   description: Indicates if an alert is needed
+ *       500:
+ *         description: Internal server error
  */
 
+app.put('/update-status', async (req, res) => {
+  const id = req.body.orderId;
+
+  try {
+      // Update the order status to 'completed' using updateOne
+      await orderModel.updateOne({ orderId: id }, { status: 'completed' });
+      res.status(200).json({ message: "Order status updated successfully", alert: true });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 
@@ -1681,110 +1416,31 @@ app.get('/api/dbstats', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
-
 /**
  * @swagger
- * paths:
- *   /api/dbstats:
- *     get:
- *       summary: Get Database Statistics
- *       description: Retrieve statistics related to the database for the logged-in user.
- *       responses:
- *         '200':
- *           description: Successful retrieval
- *           content:
- *             application/json:
- *               schema:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       description: The ID of the order.
- *                     connection:
- *                       type: object
- *                       description: Information about the connection associated with the order.
- *                       properties:
- *                         _id:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 605d605fcb3d6779f8db5c7d
- *                         fullName:
- *                           type: string
- *                           description: The full name of the connection holder.
- *                           example: John Doe
- *                         phone:
- *                           type: number
- *                           description: The phone number of the connection holder.
- *                           example: 1234567890
- *                         email:
- *                           type: string
- *                           format: email
- *                           description: The email address of the connection holder.
- *                           example: johndoe@example.com
- *                         aadhar:
- *                           type: number
- *                           description: The Aadhar number of the connection holder.
- *                           example: 123456789012
- *                         gender:
- *                           type: string
- *                           description: The gender of the connection holder.
- *                           example: Male
- *                         dob:
- *                           type: string
- *                           format: date-time
- *                           description: The date of birth of the connection holder.
- *                           example: 1990-01-01T00:00:00Z
- *                         address:
- *                           type: string
- *                           description: The address of the connection holder.
- *                           example: 123 Main Street
- *                         area:
- *                           type: string
- *                           description: The area of the connection holder.
- *                           example: Downtown
- *                         document:
- *                           type: string
- *                           description: The document path of the connection holder.
- *                           example: /uploads/document.pdf
- *                         connectionId:
- *                           type: string
- *                           description: The ID of the connection.
- *                           example: 1001
- *                         status:
- *                           type: string
- *                           description: The status of the connection.
- *                           example: pending
- *                     type:
- *                       type: string
- *                       description: The type of the order.
- *                       example: Installation
- *                     timestamp:
- *                       type: string
- *                       format: date-time
- *                       description: The timestamp of the order.
- *                       example: 2024-04-27T12:00:00Z
- *                     status:
- *                       type: string
- *                       description: The status of the order.
- *                       example: pending
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *                   alert:
- *                     type: boolean
- *                     description: Indicates if an alert should be shown.
- *                     example: false
+ * /api/dbstats:
+ *   get:
+ *     summary: Get database statistics
+ *     description: Retrieve statistics from the database based on the specified area and return the results.
+ *     parameters:
+ *       - in: query
+ *         name: area
+ *         description: The area for which to retrieve database statistics
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: An array of database statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
+ *       500:
+ *         description: Server error
  */
-
 
 
 app.post('/send-otp', (req, res) => {
@@ -1812,53 +1468,7 @@ app.post('/send-otp', (req, res) => {
   });
 });
 
-/**
- * @swagger
- * paths:
- *   /send-otp:
- *     post:
- *       summary: Send OTP for Email Verification
- *       description: Sends an OTP (One-Time Password) for email verification.
- *       requestBody:
- *         required: true
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 email2:
- *                   type: string
- *                   format: email
- *                   description: The email address to which the OTP will be sent.
- *                   example: example@example.com
- *               required:
- *                 - email2
- *       responses:
- *         '200':
- *           description: OTP sent successfully
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Confirmation message.
- *                     example: OTP sent successfully
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   error:
- *                     type: string
- *                     description: Error message.
- *                   message:
- *                     type: string
- *                     description: Error message.
- */
+
 
 
 
@@ -1877,61 +1487,6 @@ app.post('/verify-otp', (req, res) => {
     res.status(401).json({ error: 'Invalid OTP' });
   }
 });
-
-
-/**
- * @swagger
- * paths:
- *   /verify-otp:
- *     post:
- *       summary: Verify OTP
- *       description: Verifies the OTP (One-Time Password) for email verification.
- *       requestBody:
- *         required: true
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 email2:
- *                   type: string
- *                   format: email
- *                   description: The email address for which the OTP was sent.
- *                   example: example@example.com
- *                 otp:
- *                   type: string
- *                   description: The OTP received for verification.
- *                   example: 123456
- *               required:
- *                 - email2
- *                 - otp
- *       responses:
- *         '200':
- *           description: OTP verified successfully
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Confirmation message.
- *                     example: OTP verified successfully
- *         '401':
- *           description: Invalid OTP
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   error:
- *                     type: string
- *                     description: Error message.
- *                   message:
- *                     type: string
- *                     description: Error message.
- */
-
 
 
 app.get('/user/:userId/document', async (req, res) => {
@@ -1955,56 +1510,6 @@ app.get('/user/:userId/document', async (req, res) => {
     res.status(500).json({ message: 'Error retrieving document' });
   }
 });
-
-
-/**
- * @swagger
- * paths:
- *   /user/{userId}/document:
- *     get:
- *       summary: Get User Document
- *       description: Retrieves the document associated with the specified user.
- *       parameters:
- *         - in: path
- *           name: userId
- *           required: true
- *           schema:
- *             type: string
- *           description: The ID of the user.
- *       responses:
- *         '200':
- *           description: Document URL retrieved successfully
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   documentURL:
- *                     type: string
- *                     format: uri
- *                     description: The URL of the user's document.
- *                     example: http://localhost:8080/uploads/document.pdf
- *         '404':
- *           description: User not found
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- *         '500':
- *           description: Server Error
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   message:
- *                     type: string
- *                     description: Error message.
- */
 
 
 
@@ -2038,6 +1543,57 @@ app.post("/adminlogin", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /adminlogin:
+ *   post:
+ *     summary: Admin login
+ *     description: Authenticate admin credentials and log in.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: The email of the admin
+ *               password:
+ *                 type: string
+ *                 description: The password of the admin
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: A success message
+ *                 alert:
+ *                   type: boolean
+ *                   description: Indicates if an alert is needed
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: The ID of the admin
+ *                     email:
+ *                       type: string
+ *                       description: The email of the admin
+ *       400:
+ *         description: Bad request - Email or password not provided
+ *       401:
+ *         description: Unauthorized - Incorrect password
+ *       404:
+ *         description: Admin not found
+ *       500:
+ *         description: Server error
+ */
 
 
 
@@ -2057,6 +1613,27 @@ app.get('/api/admintable', async (req, res) => {
 });
 
 
+/**
+ * @swagger
+ * /api/admintable:
+ *   get:
+ *     summary: Get admin table data
+ *     description: Retrieve data for the admin table, including orders and associated connections.
+ *     responses:
+ *       200:
+ *         description: An array of admin table data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
+ *       500:
+ *         description: Server error
+ */
+
+
+
 app.get('/api/datas', async (req, res) => {
   try {
     const connections = await connModel.find().select('_id');
@@ -2064,13 +1641,14 @@ app.get('/api/datas', async (req, res) => {
     const connectionIds = connections.map(connection => connection._id);
 
     const data = await orderModel.find({ connection: { $in: connectionIds } }).populate('connection').exec();
-    console.log(typeof data)
+
     res.json(data);
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
   }
 });
+
 
 app.get('/connectiondatas', async (req, res) => {
   try {
@@ -2082,6 +1660,26 @@ app.get('/connectiondatas', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /connectiondatas:
+ *   get:
+ *     summary: Get connection data
+ *     description: Retrieve connection data from the database.
+ *     responses:
+ *       200:
+ *         description: An array of connection data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ConnectionData'
+ *       500:
+ *         description: Server error
+ */
+
+
 
 app.get('/complaintdata', async (req, res) => {
   try {
@@ -2092,6 +1690,26 @@ app.get('/complaintdata', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
+/**
+ * @swagger
+ * /complaintdata:
+ *   get:
+ *     summary: Get complaint data
+ *     description: Retrieve complaint data from the database.
+ *     responses:
+ *       200:
+ *         description: An array of complaint data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Complaint'
+ *       500:
+ *         description: Server error
+ */
+
 
 app.get('/approvedb', async (req, res) => {
   try {
@@ -2138,6 +1756,39 @@ app.post('/approvedb', async (req, res) => {
 
 });
 
+// /**
+//  * @swagger
+//  * /approvedb:
+//  *   post:
+//  *     summary: Approve delivery boy
+//  *     description: Update the status of a delivery boy to 'completed' based on the provided email ID and send an approval email.
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             properties:
+//  *               emailId:
+//  *                 type: string
+//  *                 description: The email ID of the delivery boy to be approved
+//  *     responses:
+//  *       200:
+//  *         description: Delivery boy approved successfully
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                   description: A success message
+//  *                 alert:
+//  *                   type: boolean
+//  *                   description: Indicates if an alert is needed
+//  *       500:
+//  *         description: Internal server error
+//  */
 
 app.get('/approveconn', async (req, res) => {
   try {
@@ -2149,26 +1800,110 @@ app.get('/approveconn', async (req, res) => {
   }
 });
 
-app.get('/api/getuserdetails',async (req, res) => {
-  try {
-    const data = await connModel.find()
-    res.json(data);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
+// app.get('/api/getuserdetails',async (req, res) => {
+//   try {
+//     const data = await connModel.find()
+//     res.json(data);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send('Server Error');
+//   }
+// });
+
+/**
+ * @swagger
+ * /api/getuserdetails:
+ *   get:
+ *     summary: Get user details
+ *     description: Retrieve user details from the database.
+ *     responses:
+ *       200:
+ *         description: An array of user details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Connection'
+ *       500:
+ *         description: Server error
+ */
+
+// app.get('/api/getuserdetails', async (req, res) => {
+//   try {
+//     const data = await connModel.find();
+//     res.json(data);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send('Server Error');
+//   }
+// });
+
+const redis = require('redis');
+const client = require('./util/redis');
+
+app.get('/api/getuserdetails', async (req, res) => {
+    try {
+        const cacheKey = 'user-details';
+        let data = await client.get(cacheKey);
+       
+        
+        if (!data) {
+            data = await connModel.find();
+            client.set(cacheKey, JSON.stringify(data));
+            console.log('User details set into Redis cache');
+        } else {
+            console.log('User details retrieved from Redis cache');
+            data = JSON.parse(data);
+        }
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('Error retrieving user details:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
+
+
 
 app.get('/api/getdbdetails',async (req, res) => {
   try {
-    const data = await dbModel.find()
-    res.json(data);
+      const cacheKey = 'db-details';
+      let data = await client.get(cacheKey);
+
+      if (!data) {
+          data = await dbModel.find();
+          client.set(cacheKey, JSON.stringify(data));
+          console.log('Database details set into Redis cache');
+      } else {
+          console.log('Database details retrieved from Redis cache');
+          data = JSON.parse(data);
+      }
+
+      res.status(200).json(data);
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
+      console.error('Error retrieving database details:', error);
+      res.status(500).json({ error: 'Internal server error' });
   }
 });
-
+/**
+ * @swagger
+ * /api/getdbdetails:
+ *   get:
+ *     summary: Get database details
+ *     description: Retrieve database details from the database.
+ *     responses:
+ *       200:
+ *         description: An array of database details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/DBDetails'
+ *       500:
+ *         description: Server error
+ */
 
 app.post('/approveconn', async (req, res) => {
   const id = req.body.connId;
@@ -2183,6 +1918,38 @@ app.post('/approveconn', async (req, res) => {
   }
 
 });
+
+/**
+ * @swagger
+ * /approveconn:
+ *   post:
+ *     summary: Approve connection
+ *     description: Update the status of a connection to 'completed' based on the provided connection ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Connection'
+ *     responses:
+ *       200:
+ *         description: Connection approved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: A success message
+ *                 alert:
+ *                   type: boolean
+ *                   description: Indicates if an alert is needed
+ *       500:
+ *         description: Internal server error
+ */
+
+
 
 
 
@@ -2254,6 +2021,25 @@ app.get('/dbdatas', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /dbdatas:
+ *   get:
+ *     summary: Get completed database entries
+ *     description: Retrieve database entries with status 'completed'.
+ *     responses:
+ *       200:
+ *         description: An array of completed database entries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/DBData'
+ *       500:
+ *         description: Server error
+ */
+
 app.post('/api/updateuser', async (req, res) => {
 
   const { userId, fullName, phone , area,address } = req.body;
@@ -2284,6 +2070,7 @@ app.post('/api/updateuser', async (req, res) => {
 app.delete('/api/deleteuser/:userId', async (req, res) => {
   try {
       const userId = req.params.userId;
+      console.log("user deleting by id entered into controller");
       const deletedUser = await connModel.findByIdAndDelete(userId);
       if (!deletedUser) {
           return res.status(404).json({ message: "User not found" });
@@ -2294,6 +2081,42 @@ app.delete('/api/deleteuser/:userId', async (req, res) => {
       res.status(500).json({ message: "Internal Server Error" });
   }
 });
+/**
+ * @swagger
+ * /api/deleteuser/{userId}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     description: Delete a user from the database by their ID.
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the user to delete
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: A success message
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: Error message indicating user not found
+ */
+
 
 app.post('/api/updatedb', async (req, res) => {
 
@@ -2394,5 +2217,5 @@ app.listen(Port, () => console.log("server is running at port : " + Port));
 
 
 module.exports = {
-  app
+  app,userModel
 }
