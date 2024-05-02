@@ -822,14 +822,14 @@ app.post("/signin",myLog, async (req, res) => {
       updateObj(email, data.fullName);
       console.log(obj)
       console.log(datasend);
-      res.send({
+      res.status(200).send({
         message: "Login is successfull",
         alert: true,
         data: datasend,
         
       });
     } else {
-      res.send({ message: "Enter correct password" });
+      res.status(403).send({ message: "Enter correct password" });
     }
   } else {
     // res.send({
@@ -1351,39 +1351,39 @@ console.log(obj.value)
 
 
 
-/**
- * @swagger
- * /update-status:
- *   put:
- *     summary: Update order status to 'completed'
- *     description: Update the status of an order to 'completed' based on the provided orderId.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               orderId:
- *                 type: string
- *                 description: The ID of the order to be updated
- *     responses:
- *       200:
- *         description: Order status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   description: A success message
- *                 alert:
- *                   type: boolean
- *                   description: Indicates if an alert is needed
- *       500:
- *         description: Internal server error
- */
+// /**
+//  * @swagger
+//  * /update-status:
+//  *   put:
+//  *     summary: Update order status to 'completed'
+//  *     description: Update the status of an order to 'completed' based on the provided orderId.
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             properties:
+//  *               orderId:
+//  *                 type: string
+//  *                 description: The ID of the order to be updated
+//  *     responses:
+//  *       200:
+//  *         description: Order status updated successfully
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                   description: A success message
+//  *                 alert:
+//  *                   type: boolean
+//  *                   description: Indicates if an alert is needed
+//  *       500:
+//  *         description: Internal server error
+//  */
 
 app.put('/update-status', async (req, res) => {
   const id = req.body.orderId;
