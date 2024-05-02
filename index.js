@@ -1919,35 +1919,35 @@ app.post('/approveconn', async (req, res) => {
 
 });
 
-/**
- * @swagger
- * /approveconn:
- *   post:
- *     summary: Approve connection
- *     description: Update the status of a connection to 'completed' based on the provided connection ID.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Connection'
- *     responses:
- *       200:
- *         description: Connection approved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   description: A success message
- *                 alert:
- *                   type: boolean
- *                   description: Indicates if an alert is needed
- *       500:
- *         description: Internal server error
- */
+// /**
+//  * @swagger
+//  * /approveconn:
+//  *   post:
+//  *     summary: Approve connection
+//  *     description: Update the status of a connection to 'completed' based on the provided connection ID.
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             $ref: '#/components/schemas/Connection'
+//  *     responses:
+//  *       200:
+//  *         description: Connection approved successfully
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                   description: A success message
+//  *                 alert:
+//  *                   type: boolean
+//  *                   description: Indicates if an alert is needed
+//  *       500:
+//  *         description: Internal server error
+//  */
 
 
 
